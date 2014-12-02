@@ -116,7 +116,9 @@ class ProcessWireConfig extends Process {
 
 			// extract description from comment (all text after label)
 			$description = trim(substr($comment, $pos));
+			$description = str_replace(array(":\n", ";\n", ".\n", ";;"), array(":<br>", ";<br>", ".<br>", "<br>"), $description); 
 			$description = str_replace(array("\r", "\n"), " ", $description);
+			$description = str_replace("<br>", "\n", $description); 
 
 			// the current value present in the $config API var
 			$value = $config->$name; 
@@ -269,6 +271,7 @@ class ProcessWireConfig extends Process {
 		$usage = "**API:** \$$item[type] = \$config->$item[name];";
 		if($notes) $in->notes = trim($notes) . "\n\n$usage";
 			else $in->notes = $usage; 
+		if($item['name'] == 'debugIf') $in->notes .= "\n**Your IP:** $_SERVER[REMOTE_ADDR]";
 
 		$in->attr('name', $item['name']); 
 		$in->label = $item['label'];
@@ -443,6 +446,14 @@ class ProcessWireConfig extends Process {
 		}
 
 		$form->add($submit);
+
+		$debugIf = $form->getChildByName('debugIf'); 
+		if(strlen(trim($debugIf->attr('value')))) {
+			$debug = $form->getChildByName('debug'); 
+			$debug->removeAttr('checked'); 
+			$debug->collapsed = Inputfield::collapsedYes;
+			$debug->notes .= "\n" . $this->_('**Note:** This option is disabled since "debugIf" is in use below.');
+		}
 
 		return $form;
 	}
