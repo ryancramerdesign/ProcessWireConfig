@@ -470,10 +470,10 @@ class ProcessWireConfig extends Process {
 		$file = $dir . 'config.json'; 
 		if(file_exists($file)) {
 			$url = str_replace($this->wire('config')->paths->root, '/', $file); 	
-			if(!is_readable($file)) $this->error("File exists but is not readable: $url"); 
-			if(!is_writable($file)) $this->error("File exists but is not writable: $url"); 
+			if(!is_readable($file)) $this->error("File exists but is not readable: $url", Notice::log); 
+			if(!is_writable($file)) $this->error("File exists but is not writable: $url", Notice::log); 
 		} else {
-			if(!is_writable($dir)) $this->error("Directory is not writable: $dir"); 
+			if(!is_writable($dir)) $this->error("Directory is not writable: $dir", Notice::log); 
 		}
 		return $file;
 	}
