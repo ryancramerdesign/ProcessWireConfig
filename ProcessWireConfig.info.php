@@ -8,7 +8,7 @@
 $info = array(
 	'title' => 'ProcessWire Config', 
 	'summary' => 'Enables you to customize most ProcessWire config settings from the admin, plus create your own.', 
-	'version' => 2, 
+	'version' => 3, 
 	'author' => 'Ryan Cramer', 
 	'icon' => 'gear', 
 	'permission' => 'config-edit', 

@@ -35,7 +35,7 @@ class ProcessWireConfig extends Process {
 	protected function extractCommentXtraProperties(&$comment) {
 
 		if(strpos($comment, '#') === false) return array(); 
-		if(!preg_match_all('{^#([a-zA-Z]+)\s+(.+)$}m', $comment, $matches)) return array();
+		if(!preg_match_all('{^ *#([a-zA-Z]+)\s+(.+)$}m', $comment, $matches)) return array();
 		$xtra = array();
 
 		foreach($matches[0] as $key => $line) {
@@ -88,24 +88,31 @@ class ProcessWireConfig extends Process {
 		$config = $this->wire('config');
 		$items = array();
 
-		// match all phpdoc comment in our config.php defined format
-		$re = '{/\*\*((?:[^/]|[^*]/)+?@var +([a-z]+)[^/]+?)\*/.*?[\s\r\n]+\$config->([_a-zA-Z0-9]+)\s*=\s*([^;]+);}s'; 
-		preg_match_all($re, $data, $matches);
-		
-		foreach($matches[1] as $key => $comment) {
+		$parts = explode('/**', $data); 
 
-			$type = $matches[2][$key];
-			$name = $matches[3][$key];
-			$xtra = array();
+		foreach($parts as $comment) {
+
+			$varpos = strpos($comment, '@var');
+			$cfgpos = strpos($comment, "\n" . '$config->'); 
+
+			if(!$varpos || !$cfgpos) continue; 
+
+			$name = substr($comment, $cfgpos+10, 100); 
+			$name = trim(substr($name, 0, strpos($name, "=")));
 
 			// if this field was already defined in a previous call to getConfigOptions, skip it
 			if(isset($used[$name])) continue; 
 
+			$type = substr($comment, $varpos+5, 50); 
+			$type = trim(substr($type, 0, strpos($type, "\n")));
+
+			$xtra = array();
+
 			// reduce comment only include everything up to @var
-			$comment = substr($comment, 0, strpos($comment, '@var')); 	
+			$comment = substr($comment, 0, $varpos); 
 
 			// remove phpdoc asterisks
-			$comment = trim(preg_replace('{^ *\*+ *}m', '', $comment)); 
+			$comment = trim(preg_replace('{^[\t\r\n ]*[*]+[\t ]*}m', '', $comment)); 
 
 			// extract the #xtra properties from comment (this also updates $comment)
 			$xtra = $this->extractCommentXtraProperties($comment); 
@@ -127,9 +134,9 @@ class ProcessWireConfig extends Process {
 				'name' => $name, 
 				'type' => $type, 
 				'value' => $value, 
-				//'default' => trim($matches[4][$key], "'\""), // default value (string)
 				'label' => $label, 
 				'description' => $description, 
+				//'default' => trim($matches[4][$key], "'\""), // default value (string)
 				);
 
 			// merge in xtra data, if there was any
@@ -158,27 +165,29 @@ class ProcessWireConfig extends Process {
 		// top holds the data present before any sections begin (uncategorized section)
 		$top = null;
 	
-		// match from beginning of one section till starting of another (or end of file)	
-		// note that sections start with: /*** SECTION NAME ***************/
-		$re = '{[\r\n]/[*]{3} (\d+\. [^*\r\n]+)[*]{10}.+?(?=[\r\n]/[*]{3} |$)}s';
+		foreach(explode('/*** ', $data) as $c => $data) {
 
-		if(preg_match_all($re, $data, $matches)) {
-			foreach($matches[1] as $key => $headline) {
-				if(is_null($top)) $top = substr($data, 0, strpos($data, $matches[0][$key])); 
-				$data = $matches[0][$key]; 
-				$headline = ucwords(strtolower(trim($headline))); 
-				$items = $this->getConfigOptions($data); 	
-				if(count($items)) $sections[$headline] = $items;
+			if(!$c) {
+				$top = $data; 
+				continue; 
 			}
-		} else {
-			$top = $data; 
+
+			$pos = strpos($data, ' **********'); 
+			if(!$pos) continue; 
+
+			$headline = substr($data, 0, $pos); 
+			$headline = ucwords(strtolower(trim($headline))); 
+			$items = $this->getConfigOptions($data); 
+			if(count($items)) $sections[$headline] = $items;
 		}
 
-		$items = $this->getConfigOptions($top); 	
-		static $n = 0;
-		if(count($items)) {
-			$n++;
-			$sections["_x$n"] = $items;
+		if($top) { 
+			$items = $this->getConfigOptions($top); 	
+			static $n = 0;
+			if(count($items)) {
+				$n++;
+				$sections["_x$n"] = $items;
+			}
 		}
 
 		return $sections;
@@ -448,7 +457,7 @@ class ProcessWireConfig extends Process {
 		$form->add($submit);
 
 		$debugIf = $form->getChildByName('debugIf'); 
-		if(strlen(trim($debugIf->attr('value')))) {
+		if($debugIf && strlen(trim($debugIf->attr('value')))) {
 			$debug = $form->getChildByName('debug'); 
 			$debug->removeAttr('checked'); 
 			$debug->collapsed = Inputfield::collapsedYes;
