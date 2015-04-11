@@ -6,7 +6,7 @@
  * Edit many ProcessWire $config settings from the admin. 
  * 
  * ProcessWire 2.x 
- * Copyright (C) 2014 by Ryan Cramer 
+ * Copyright (C) 2015 by Ryan Cramer 
  * Licensed under GNU/GPL v2, see LICENSE.TXT
  * 
  * http://processwire.com
@@ -206,6 +206,7 @@ class ProcessWireConfig extends Process {
 		$modules = $this->wire('modules');
 		$skip = false;
 		$input = $this->wire('input');
+		$markAsChanged = false;
 
 		// if $item specifies an 'input' property, use that, otherwise use it's 'type' property
 		if(isset($item['input'])) {
@@ -228,6 +229,16 @@ class ProcessWireConfig extends Process {
 					// avoid multidimensional arrays: we don't support at present
 					$skip = true; 
 					break;
+				}
+				if(is_int($k)) {
+					// is this is a regular array? or maybe an associative that got mixed up as one?
+					// check to see if it has a key=value in the value
+					if(strpos($v, '=') && preg_match('/^([_a-zA-Z0-9]+)\s*=\s*(.*)$/', $v, $matches)) {
+						$this->message("Converting $item[name] from regular to associative array", Notice::debug); 
+						$k = trim($matches[1]);
+						$v = trim($matches[2]);
+						$markAsChanged = true; // force convert
+					}
 				}
 				if(is_int($k)) {
 					// this is a regular array
@@ -289,6 +300,7 @@ class ProcessWireConfig extends Process {
 		$in->resetTrackChanges(true);
 
 		if($processInput) $in->processInput($input->post); 
+		if($markAsChanged) $in->trackChange('value');
 
 		return $in;
 	}
@@ -514,6 +526,7 @@ class ProcessWireConfig extends Process {
 	protected function cleanConfigDataArrayItem(&$item) {
 
 		$value = array(); // replacement value
+		$name = $item['name'];
 
 		// iterate through each line in the string to convert to array
 		foreach(explode("\n", $item['value']) as $line) {
@@ -538,15 +551,20 @@ class ProcessWireConfig extends Process {
 					// @todo add support for more types
 					$info = $item['property'][$k];
 					$type = isset($info['type']) ? $info['type'] : 'string';
-					if($type == 'bool') {
-						// bools can be either 'true' or '1', and 'false' or '0'
-						if(stripos($v, 'true') !== false) $v = 1; 
-						if(stripos($v, 'false') !== false) $v = 0; 
-						$v = (bool) ((int) $v); 
-					} else if($type == 'int') {
-						$v = (int) $v; 
-					}
-				}	
+				} else {
+					$type = 'string';
+				}
+				
+				if($type == 'bool') {
+					// bools can be either 'true' or '1', and 'false' or '0'
+					if(stripos($v, 'true') !== false) $v = 1; 
+					if(stripos($v, 'false') !== false) $v = 0; 
+					$v = (bool) ((int) $v); 
+				} else if($type == 'int') {
+					$v = (int) $v; 
+				} else {
+					// default is string, which is ok as is
+				}
 
 				if(strlen($k)) $value[$k] = $v;
 
@@ -601,7 +619,7 @@ class ProcessWireConfig extends Process {
 	 *
 	 * This method redirects back to same page after completing the save.
 	 *
-	 * param array $items
+	 * @param array $items
 	 * @param array $removeItems Optionally names of items to remove
 	 *
 	 */
