@@ -321,9 +321,9 @@ class ProcessWireConfig extends Process {
 			$items[$name] = array(
 				'name' => $name, 
 				'type' => strtolower($parts[1]),
-				'label' => isset($parts[2]) ? $parts[2] : $parts[0], 
+				'label' => isset($parts[2]) ? $parts[2] : $name, 
 				'description' => isset($parts[3]) ? $parts[3] : '', 
-				'value' => $this->wire('config')->$parts[0],
+				'value' => $this->wire('config')->get($name)
 				);
 		}
 		return array('_custom' => $items); 
